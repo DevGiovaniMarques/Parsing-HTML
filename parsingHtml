@@ -1,0 +1,60 @@
+#!/bin/bash
+
+while true; do
+    clear
+         
+     
+    read -p "Digite o domínio para pesquisar (ou pressione Enter para sair): " dominio
+
+    echo "================================================================="
+    echo " "
+    echo "[+] Resolvendo Urls: $dominio "
+    echo " "
+    echo "================================================================="
+
+    wget -q $dominio
+
+    echo -e "\e[31m[+] Concluído: Salvando os resultados em: $dominio.ip.txt\e[0m"
+    echo -e "================================================================================"
+    printf "| %-10s | %-35s | %-40s |\n" "Line" "IP" "ADDRESS"
+    echo -e "================================================================================"
+
+    grep href index.html | cut -d "/" -f 3 | cut -d '"' -f 1 | grep "\." > $dominio.ip.txt
+
+    i=1
+    while read -r url; do
+
+        # 1. Obtenha a lista de IPs e armazene em um array chamado 'ip_array'
+        #    'mapfile -t' lê cada linha da saída do comando e a transforma em um elemento do array.
+        mapfile -t ip_array < <(host "$url" | awk '/has address/ {print $4}')
+
+        # 2. Verifique se o array não está vazio (se algum IP foi encontrado)
+        if [ ${#ip_array[@]} -gt 0 ]; then
+
+            # 3. Imprima a PRIMEIRA linha com o número, o primeiro IP e a URL
+            printf "| %-10s | %-35s | %-40s |\n" "$i" "${ip_array[0]}" "$url"
+
+            # 4. Faça um loop pelo RESTO dos IPs (a partir do segundo)
+            for ip in "${ip_array[@]:1}"; do
+                # Imprima as linhas seguintes apenas com o IP, mantendo as outras colunas vazias
+                printf "| %-10s | %-35s | %-40s |\n" "" "$ip" ""
+            done
+
+            # 5. Incremente o contador de linhas principal apenas uma vez por URL
+            ((i++))
+    # Opcional: Adiciona uma linha de separação para melhor legibilidade
+            # printf -- '-%.0s' {1..92}; echo ""
+        fi
+    done < "$dominio.ip.txt"
+
+    rm -f index.html
+    
+    echo "-----------------------------------------------------------"
+    read -rp $'\e[32m- Nova pesquisa? (s/n): \e[0m' resposta
+
+    if [[ ! "$resposta" =~ ^[sSyY]$ ]]; then
+        echo -e "\nEncerrando...\n"
+        break
+    fi
+done
+
